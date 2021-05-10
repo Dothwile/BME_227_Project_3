@@ -12,11 +12,15 @@ A lot of this is recycled code from Lab 5
 
 import numpy as np
 import sklearn as skl # The ML module
+from sklearn import preprocessing as pre # I dont know why but if I don't I get an 
+from sklearn import model_selection, svm # really sklearn, really? Dot notation, ever heard of it?
 
+
+# %% Parser Changes //If any
 
 # %% Load in data // Recyled
 
-def load_data(name):
+def load_data(name): # Time removed for now as test sets do not include //TODO generalize to check for existance of time file?
     '''load_data
     Parameters-
     name : str : The name associated with the loaded files
@@ -27,9 +31,9 @@ def load_data(name):
     loads both emg and time data of specified name
     '''
     emg_data = np.load(str(name) + '_RPS_Data.npy') # Load in data
-    emg_time = np.load(str(name) + '_RPS_Time.npy') # Load in time
+    #emg_time = np.load(str(name) + '_RPS_Time.npy') # Load in time
     
-    return emg_data, emg_time # Return loaded data and time
+    return emg_data #, emg_time # Return loaded data and time
 
 # %% Process and Extract data // Recyled
 
@@ -91,7 +95,7 @@ def extract_features(epoched_data):
     features = np.concatenate((epoch_var,epoch_mav,epoch_zc),axis=1)
     
     # Normalize the feature array
-    features = skl.preprocessing.scale(features)
+    features = pre.scale(features)
     #--- Cannot get mean and std exactly 0 and 1. Tested on smaller arrays with same syntax and was succesful
     #--- Output mean and std where X*10^-17 and 0.99999... respectively, assuming floating point error or issue with big array
     
@@ -100,3 +104,19 @@ def extract_features(epoched_data):
     
     return features, feature_shorthands # Return the normalized feature array
 
+# %% Train and validate classifier
+
+def create_train_classifier(data, param_grid={'C':[[1,10,100]],'kernel':[['linear','poly']]}): # //TODO Add default values
+    '''create_train_classifier
+    Parameters
+    data : np array (or array-like) : the data to be split and train the classifier, has a default
+    param_grid : dictionary : set of parameters to test
+    Returns
+    
+    '''
+    train, test = skl.model_selection.train_test_split(data) # split the given data into test and training sets
+    svc = svm.SVC() # Create the classifier object
+    search = model_selection.GridSearchCV(svc, skl.model_selection.ParameterGrid(param_grid)) # Run the grid search, using ParameterGrid to permute the parameters
+    search.fit(train, test)
+    
+    return search
