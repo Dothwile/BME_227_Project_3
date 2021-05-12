@@ -14,7 +14,7 @@ import numpy as np
 import sklearn as skl # The ML module
 from sklearn import preprocessing as pre # I dont know why but if I don't I get an 
 from sklearn import model_selection, svm # really sklearn, really? Dot notation, ever heard of it?
-
+from joblib import dump
 
 # %% Parser Changes //If any
 
@@ -100,13 +100,30 @@ def extract_features(epoched_data):
     #--- Output mean and std where X*10^-17 and 0.99999... respectively, assuming floating point error or issue with big array
     
     # Create the shorthand list
-    feature_shorthands = ['Var_ch0','Var_ch1','Var_ch2','MAV_ch0','MAV_ch1','MAV_ch2','ZC_ch0','ZC_ch1','ZC_ch2'] # Why is this even in this method?
+    #feature_shorthands = ['Var_ch0','Var_ch1','Var_ch2','MAV_ch0','MAV_ch1','MAV_ch2','ZC_ch0','ZC_ch1','ZC_ch2'] # Why is this even in this method?
     
-    return features, feature_shorthands # Return the normalized feature array
+    return features #, feature_shorthands # Return the normalized feature array
+
+def make_truth_data(action_sequence, epochs_per_action):
+    '''make_truth_data
+    Parameters
+    action_sequence : 1D str list : the whole seuqence of actions over the recording period
+    epochs_per_action : int : the number of epochs per second
+    Returns
+    instructed_action : 1D str list : the total list of actions acounting for duplicate actions each second due to multipole epochs per second
+    
+    Creates a list of true actions factoring in repeats due to multiple epochs per second
+    '''
+    instructed_action = [] # Create the empty list for instructed actions
+    for action in range(len(action_sequence)): # I guess we're assuming non-fractional values at this point? (I'd code around that but time)
+        for epoch in range(epochs_per_action): # This could probably be done more elegantly but...
+            instructed_action.append(action_sequence[action]) # Append the current action epochs_per_action times
+        
+    return instructed_action # Returns the array of instructed actions at associated epochs
 
 # %% Train and validate classifier
 
-def create_train_classifier(data, param_grid={'C':[[1,10,100]],'kernel':[['linear','poly']]}): # //TODO Add default values
+def create_train_classifier(data, targets, param_grid={'C':[[0.1,1,10,100,1e6]],'kernel':[['poly','rbf']]}): # //TODO Add default values
     '''create_train_classifier
     Parameters
     data : np array (or array-like) : the data to be split and train the classifier, has a default
@@ -114,9 +131,15 @@ def create_train_classifier(data, param_grid={'C':[[1,10,100]],'kernel':[['linea
     Returns
     
     '''
-    train, test = skl.model_selection.train_test_split(data) # split the given data into test and training sets
-    svc = svm.SVC() # Create the classifier object
+    f_train, f_test, a_train, a_test = skl.model_selection.train_test_split(data, targets) # split the given data into test and training sets
+    svc = svm.SVC(decision_function_shape='ovr') # Create the classifier object
     search = model_selection.GridSearchCV(svc, skl.model_selection.ParameterGrid(param_grid)) # Run the grid search, using ParameterGrid to permute the parameters
-    search.fit(train, test)
+    search.fit(f_train, a_train) # Fit the data set
+    
+    dump(search, 'classifier.joblib') # Save the classifier object
     
     return search
+
+# %% Main calls and testing
+
+#['rest','rock','rest','paper','rest','scissors']
